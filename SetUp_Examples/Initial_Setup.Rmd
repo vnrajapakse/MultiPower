@@ -1,0 +1,121 @@
+---
+title: "Initial Setup"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Installation Prerequisites
++ This is not a very polished package as far as installation, and there are
+  additional steps to make this work that aren't documented.
++ These steps (installation) only have to be done once
+```{r}
+
+# Install package that helps with package installation generally.
+install.packages("devtools")
+
+# Install other required packages
+install.packages("slam")
+install.packages("lpmodeler")
+
+source("https://bioconductor.org/biocLite.R")
+biocLite("RnaSeqSampleSize")
+
+# Background on installation problem fixes (not needed, but for record)
+# https://cran.r-project.org/web/packages/TestDesign/vignettes/rsymphony.html
+
+
+```
+
+
+
+
+
+```{bash}
+
+# This has to be run from a command line terminal
+
+# Change directories to prereq_packages directory (under MultiPower directory )
+sudo R CMD install Rsymphony
+
+
+```
+
+# Installation (continued)
+```{r}
+library("slam")
+library("lpmodeler")
+
+devtools::install_bitbucket("ConesaLab/multipower")
+```
+
+## Everything above here (installation) only has to be done once.
+*******************************************************************************
+
+```{r}
+library("slam")
+library("lpmodeler")
+library("Rsymphony")
+
+```
+
+
+```{r}
+library("MultiPower")
+library("RnaSeqSampleSize")
+```
+
+
+```{r}
+myomics = c("RNA-seq", "miRNA-seq", "RRBS-seq") 
+mytype = c(1, 1, 2) 
+sdValue = c(2.5,3.7,0.7) # pooled standard deviation 
+p1omics = c(0.4, 0.2, 0.1) # expected proportion of DE features 
+d0 = 1 
+minFC0 = c(1.5, 1.5, NA) # fold-change to be detected in DE features
+meanCounts0 = c(20, 15, NA) # mean counts of DE features 
+M = c(12000, 500, 600000) # number of features
+```
+
+
+```{r}
+myparam = vector("list", length = 3) # define parameters object 
+names(myparam) = myomics 
+
+for (i in 1:length(myparam)) { 
+  if (mytype[i] == 1) { 
+    disp = max((sdValue[i]^2 - meanCounts0[i]) / meanCounts0[i]^2, 0.0001)
+  } 
+  if (mytype[i] == 2) { 
+    disp = sdValue[i] 
+  } 
+  myparam[[i]] = list("type" = mytype[i], 
+                      "allDispersions" = NULL, 
+                      "dispersion" = disp,
+                      "p1" = p1omics[i], 
+                      "d" = d0, 
+                      "delta" = d0*sdValue[i], 
+                      "minFC" = minFC0[i], 
+                      "meanCounts" = meanCounts0[i], 
+                      "m" = M[i], 
+                      "m1" = round(M[i]*p1omics[i], 0), 
+                      "alld" = NULL, 
+                      "dispPerc" = 75, 
+                      "w" = 1)
+}
+```
+
+
+```{r}
+optimalSS = MultiPower::optimalRep(parameters = myparam, omicPower = 0.6, 
+                       averagePower = 0.8, fdr = 0.05, alpha = 0.05, 
+                       cost = 1, equalSize = TRUE, max.size = 30)
+
+optimalSS$n # optimal sample size 
+
+powerSummary(parameters = myparam, optimalSampleSize = optimalSS)
+
+```
+
